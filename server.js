@@ -2,12 +2,14 @@ const http = require('http');
 const fs = require('fs');
 const fsPromises = require('fs').promises;
 const url = require('url');
+const querystring = require('querystring')
 const figlet = require('figlet');
 const path = require('path');
 
 const PORT = process.env.PORT || 8000
 
 async function serveFile(filePath, contentType, response) {
+  const params = querystring.parse(url.parse(req.url).query)
   try {
     const rawData = await fsPromises.readFile(
       filePath,
@@ -18,7 +20,11 @@ async function serveFile(filePath, contentType, response) {
       filePath.includes('404.html') ? 404 : 200,
        {'Content-type': contentType});
     response.end(
-      contentType === 'application/json' ? JSON.stringify(data) : data
+      contentType === 'application/json' 
+        ? 'student' in params 
+            ? returnObject(params['student'])
+            : returnObject('unknown')
+        : data
     );
   } catch(err) {
     console.log(err);
@@ -93,28 +99,20 @@ const server = http.createServer((req, res) => {
   }
 });
 
- /* 
-} else if (page == 'api') {
-    if('student' in params){
-      if(params['student']== 'leon'){
-        res.writeHead(200, {'Content-Type': 'application/json'});
-        const objToJson = {
-          name: "leon",
-          status: "Boss Man",
-          currentOccupation: "Baller"
-        }
-        res.end(JSON.stringify(objToJson));
-      }//student = leon
-      else {
-        res.writeHead(200, {'Content-Type': 'application/json'});
-        const objToJson = {
-          name: "unknown",
-          status: "unknown",
-          currentOccupation: "unknown"
-        }
-        res.end(JSON.stringify(objToJson));
-      }//student != leon
-    }//student if
-*/
+function returnObject(student) {
+  let obj = {
+    name: 'unknown',
+    status: 'unknown',
+    currentOccupation: 'unknown'
+  }
+
+  if (student.toLowerCase() === 'pamela') {
+    obj.name = "Pamela"
+    obj.status = "Anxious"
+    obj.currentOccupation = "Coder"
+  }
+
+  return obj
+}
 
 server.listen(PORT);
