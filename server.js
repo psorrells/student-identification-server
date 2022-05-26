@@ -1,13 +1,34 @@
 const http = require('http');
-const fs = require('fs')
+const fs = require('fs');
+const fsPromises = require('fs').promises;
 const url = require('url');
-const querystring = require('querystring');
 const figlet = require('figlet');
+const path = require('path');
 
 const PORT = process.env.PORT || 8000
 
+async function serveFile(filePath, contentType, response) {
+  try {
+    const rawData = await fsPromises.readFile(
+      filePath,
+      !contentType.includes('image') ? 'utf8' : '');
+    const data = contentType === 'application/json'
+      ? JSON.parse(rawData) : rawData;
+    response.writeHead(
+      filePath.includes('404.html') ? 404 : 200,
+       {'Content-type': contentType});
+    response.end(
+      contentType === 'application/json' ? JSON.stringify(data) : data
+    );
+  } catch(err) {
+    console.log(err);
+    response.statusCode = 500;
+    response.end();
+  }
+}
 
-const server2 = http.createServer((req, res) => {
+
+const server = http.createServer((req, res) => {
   console.log(req.url, req.method)
 
   const extension = path.extname(req.url);
@@ -38,21 +59,42 @@ const server2 = http.createServer((req, res) => {
       break;
 
   }
-});
 
-const server = http.createServer((req, res) => {
-  const page = url.parse(req.url).pathname;
-  const params = querystring.parse(url.parse(req.url).query);
-  console.log(page);
-  page = page.slice(1)
-  if (!page) page = 'index'
-  if (page !== 'api') {
-    fs.readFile(`${page}.html`, function(err, data) {
-      res.writeHead(200, {'Content-Type': 'text/html'});
+  let filePath = 
+    contentType === 'text/html' && req.url === '/'
+      ? path.join(__dirname,'index.html')
+      : contentType === 'text/html' && req.url.slice(-1) === '/'
+          ? path.join(__dirname, req.url, 'index.html')
+          : contentType === 'text/html'
+              ? path.join(__dirname, req.url)
+              : path.join(__dirname, req.url);
+
+  //makes .html extension not required in the browser
+  if (!extension && req.url.slice(-1) !== '/') filePath += '.html'
+
+  const fileExists = fs.existsSync(filePath);
+
+  if (fileExists) {
+    //serve the file
+    serveFile(filePath, contentType, res)
+  } else {
+    //404 or 301
+    console.log(path.parse(filePath))
+    figlet('404!!', function(err, data) {
+      if (err) {
+          console.log('Something went wrong...');
+          console.dir(err);
+          return;
+      }
       res.write(data);
       res.end();
-    })
-  } else if (page == 'api') {
+    });
+    
+  }
+});
+
+ /* 
+} else if (page == 'api') {
     if('student' in params){
       if(params['student']== 'leon'){
         res.writeHead(200, {'Content-Type': 'application/json'});
@@ -73,29 +115,6 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(objToJson));
       }//student != leon
     }//student if
-  }//else if
-  else if (page == 'css/style.css'){
-    fs.readFile('css/style.css', function(err, data) {
-      res.write(data);
-      res.end();
-    });
-  }else if (page == '/js/main.js'){
-    fs.readFile('js/main.js', function(err, data) {
-      res.writeHead(200, {'Content-Type': 'text/javascript'});
-      res.write(data);
-      res.end();
-    });
-  }else{
-    figlet('404!!', function(err, data) {
-      if (err) {
-          console.log('Something went wrong...');
-          console.dir(err);
-          return;
-      }
-      res.write(data);
-      res.end();
-    });
-  }
-});
+*/
 
 server.listen(PORT);
